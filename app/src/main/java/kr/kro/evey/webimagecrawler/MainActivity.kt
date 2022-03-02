@@ -18,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     val TAG = "WebImageCrawler"
     val MESSAGE_SCROLLED = 1
     val MESSAGE_DOWNLOADED = 2
+    var map: HashMap<String, String> = HashMap()
 
     val handler = object : Handler() {
         override fun handleMessage(msg: Message) {
@@ -88,17 +89,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun checkImageUrl(url: String) {
-        if (url.contains("small") || url.contains("360x360")) {
-            var newUrl = url.replace("small", "large")
-            newUrl = newUrl.replace("360x360", "large")
-            var fileName = newUrl.replace("https://pbs.twimg.com/media/", "")
-            fileName = fileName.replace("?format=jpg&name=large", "")
-            val dirPath = getExternalFilesDir(null)?.absolutePath
-            dirPath?.let { downloadFile(newUrl, it, "$fileName.jpg") }
+        if (!map.containsKey(url)) {
+            map.set(url, url)
+            if (url.contains("small") || url.contains("360x360")) {
+                var newUrl = url.replace("small", "large")
+                newUrl = newUrl.replace("360x360", "large")
+                var fileName = newUrl.replace("https://pbs.twimg.com/media/", "")
+                fileName = fileName.replace("?format=jpg&name=large", "")
+                val dirPath = getExternalFilesDir(null)?.absolutePath
+                dirPath?.let { downloadFile(newUrl, it, "$fileName.jpg") }
+            }
         }
     }
 
     fun downloadFile(url: String, dirPath: String, fileName: String) {
+        Log.i(TAG, "downloadFile dirPath=$dirPath")
         val downloadId = PRDownloader.download(url, dirPath, fileName)
             .build()
             .setOnStartOrResumeListener { Log.i(TAG, "onStart $fileName") }
