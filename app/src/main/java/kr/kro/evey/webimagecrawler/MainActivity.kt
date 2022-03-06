@@ -43,6 +43,10 @@ class MainActivity : AppCompatActivity() {
         handler.sendEmptyMessageDelayed(MESSAGE_SCROLLED, 1000)
     }
 
+    override fun onBackPressed() {
+        if (webView.canGoBack()) webView.goBack()
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
