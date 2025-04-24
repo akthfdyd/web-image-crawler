@@ -2,34 +2,40 @@ package kr.kro.evey.webimagecrawler
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.os.*
-import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.os.Handler
+import android.os.Message
 import android.util.Log
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.appcompat.app.AppCompatActivity
 import com.downloader.Error
 import com.downloader.OnDownloadListener
 import com.downloader.PRDownloader
-import kotlinx.android.synthetic.main.activity_main.*
 import org.json.JSONArray
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var binding: kr.kro.evey.webimagecrawler.databinding.ActivityMainBinding
+
     val TAG = "WebImageCrawler"
     val MESSAGE_SCROLLED = 1
     val MESSAGE_DOWNLOADED = 2
+    var autoRunning = false
     var map: HashMap<String, String> = HashMap()
 
     val handler = object : Handler() {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 MESSAGE_SCROLLED -> {
-                    downButton.performClick()
+                    binding.downButton.performClick()
                     downDelayed()
                 }
+
                 MESSAGE_DOWNLOADED -> {
-                    scrollButton.performClick()
-                    scrollDelayed()
+                    binding.scrollButton.performClick()
+                    if (autoRunning) scrollDelayed()
                 }
             }
         }
@@ -44,52 +50,61 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack()
+        if (binding.webView.canGoBack()) binding.webView.goBack()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding =
+            kr.kro.evey.webimagecrawler.databinding.ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         PRDownloader.initialize(applicationContext);
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.addJavascriptInterface(JSInterface(this, object : JSInterface.JSInterfaceListener {
-            override fun onList(jsonStr: String) {
-                Log.i(TAG, "onList() >> $jsonStr")
-                val jsonArray = JSONArray(jsonStr)
-                for (index in 0 until jsonArray.length()) {
-                    val url: String = jsonArray.get(index).toString()
-                    Log.i(TAG, "jsonItem >> $url")
-                    checkImageUrl(url)
+        binding.webView.settings.javaScriptEnabled = true
+        binding.webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        binding.webView.addJavascriptInterface(
+            JSInterface(this, object : JSInterface.JSInterfaceListener {
+                override fun onList(jsonStr: String) {
+                    Log.i(TAG, "onList() >> $jsonStr")
+                    val jsonArray = JSONArray(jsonStr)
+                    for (index in 0 until jsonArray.length()) {
+                        val url: String = jsonArray.get(index).toString()
+                        Log.i(TAG, "jsonItem >> $url")
+                        checkImageUrl(url)
+                    }
                 }
-            }
-        }), "android")
+            }), "android"
+        )
 
-        webView.webViewClient = object : WebViewClient() {
+        binding.webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                addressEditText.setText(url)
+                binding.addressEditText.setText(url)
             }
         }
 
-        goButton.setOnClickListener {
-            webView.loadUrl(addressEditText.text.toString())
+        binding.goButton.setOnClickListener {
+            binding.webView.loadUrl(binding.addressEditText.text.toString())
         }
-        autoDownButton.setOnClickListener {
-            handler.sendEmptyMessage(MESSAGE_DOWNLOADED)
+        binding.autoDownButton.setOnClickListener {
+            autoRunning = !autoRunning
+            if (autoRunning) {
+                handler.sendEmptyMessage(MESSAGE_DOWNLOADED)
+            }
         }
-        scrollButton.setOnClickListener {
-            webView.loadUrl("javascript:window.scrollTo(0,99999999);")
+        binding.scrollButton.setOnClickListener {
+            binding.webView.loadUrl("javascript:window.scrollTo(0,99999999);")
         }
-        downButton.setOnClickListener {
-            webView.loadUrl("javascript:function img_find() { var imgs = document.getElementsByTagName(\"img\"); var imgSrcs = []; for (var i = 0; i < imgs.length; i++) { imgSrcs.push(imgs[i].src); } return imgSrcs; }")
-            webView.loadUrl("javascript:window.android.getImageList(JSON.stringify(img_find()));")
+        binding.downButton.setOnClickListener {
+            binding.webView.loadUrl("javascript:function img_find() { var imgs = document.getElementsByTagName(\"img\"); var imgSrcs = []; for (var i = 0; i < imgs.length; i++) { imgSrcs.push(imgs[i].src); } return imgSrcs; }")
+            binding.webView.loadUrl("javascript:window.android.getImageList(JSON.stringify(img_find()));")
         }
 
-        webView.loadUrl("https://mobile.twitter.com")
+        binding.webView.loadUrl("https://mobile.twitter.com")
     }
 
     fun checkImageUrl(url: String) {
@@ -108,8 +123,7 @@ class MainActivity : AppCompatActivity() {
 
     fun downloadFile(url: String, dirPath: String, fileName: String) {
         Log.i(TAG, "downloadFile dirPath=$dirPath")
-        val downloadId = PRDownloader.download(url, dirPath, fileName)
-            .build()
+        val downloadId = PRDownloader.download(url, dirPath, fileName).build()
             .setOnStartOrResumeListener { Log.i(TAG, "onStart $fileName") }
             .setOnPauseListener { Log.i(TAG, "onPause $fileName") }
             .setOnCancelListener { Log.i(TAG, "onCancel $fileName") }
@@ -126,8 +140,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal class JSInterface(
-        private val activity: Activity,
-        private val listener: JSInterfaceListener
+        private val activity: Activity, private val listener: JSInterfaceListener
     ) {
 
         interface JSInterfaceListener {
